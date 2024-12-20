@@ -4,12 +4,16 @@ Author: Alex (Tai-Jung) Chen
 Run through all the classification framework for comparison purpose.
 """
 import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
 from tqdm import tqdm
 from binary_clf import binary
 from divide_n_conquer import divide_n_conquer
 from multi_class_clf import multi_clf, multi_analysis
 from typing import List
+import xgboost as xgb
 
 
 def main(dataset: str, model_types: List[str], n_rep: int):
@@ -20,9 +24,11 @@ def main(dataset: str, model_types: List[str], n_rep: int):
     :param model_types: types of models used for classification.
     :param n_rep: number of replications.
     """
+    res_df = pd.DataFrame()
+
     # read data
     for i in range(n_rep):
-        if dataset == 'maintenance':
+        if dataset == 'MPMC':
             df = pd.read_csv("datasets/preprocessed/maintenance_data.csv")
             X_train, X_test, y_train, y_test = train_test_split(df.iloc[:, :-4], df['target'], test_size=0.3,
                                                                 stratify=df['failure.type'], random_state=i)
@@ -39,19 +45,25 @@ def main(dataset: str, model_types: List[str], n_rep: int):
 
         # run models
         for model in tqdm(model_types):
-            binary(model, X_train, X_test, y_train, y_test)
-            divide_n_conquer(model, X_train, X_test, y_train, y_test)
-            multi_clf(model, STRATEGY_1, X_train, X_test, y_train, y_test)
-            multi_clf(model, STRATEGY_3, X_train, X_test, y_train, y_test)
+            res_bin = binary(model, X_train, X_test, y_train, y_test)
+            res_dnc = divide_n_conquer(model, X_train, X_test, y_train, y_test)
+            res_twoLH = two_layer_hie()
+            res_threeLH = three_layer_hie()
+            res_ovo = multi_clf(model, X_train, X_test, y_train, y_test, framework = "OvO")
+            res_ovr = multi_clf(model, X_train, X_test, y_train, y_test, framework = "OvO")
+            res_dir = multi_clf(model, X_train, X_test, y_train, y_test, framework="Direct")
+        res_df = pd.concat([res_df, res_bin, res_dnc, res_twoLH, res_threeLH, res_ovo, res_ovr, res_dir], axis=0)
+
+    # average the performance
+    return res_df.groupby(by=["method", "model"]).mean()
 
 
 if __name__ == "__main__":
-    N_REP = 10
-    STRATEGY_1 = "OvO"
-    STRATEGY_2 = "OvR"
-    STRATEGY_3 = "Direct"
-    model_types = ['LR', 'DT', 'RF', 'XGBOOST']
-    dataset = "HMEQ"
+    N_REP = 2
+    model_types = [LogisticRegression(), DecisionTreeClassifier(), RandomForestClassifier(), xgb.XGBClassifier()]
+    dataset = "MPMC"
 
-    main(dataset, model_types, N_REP)
+    res = main(dataset, model_types, N_REP)
+
+    # save the result...
 
