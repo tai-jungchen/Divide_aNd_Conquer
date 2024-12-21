@@ -1,87 +1,81 @@
 """
 Author: Alex (Tai-Jung) Chen
 
-Implement the 2-level hierarchical method.
+Implement the 2-level hierarchical method. This method utilizes a top layer which consist of a multi-class classifier
+to determine which minority subclass the sample belongs to. After the top layer, the samples are assigned to the bottom
+layer which is composed of several local models to take advantage of the benefit of the local models.
 """
-import math
 import pandas as pd
 import numpy as np
-import shap
-import seaborn as sns
-import matplotlib.pyplot as plt
-from sklearn.linear_model import LogisticRegression
 import xgboost as xgb
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, f1_score
-from sklearn.preprocessing import LabelEncoder
-from sklearn.multiclass import OneVsOneClassifier
+from imblearn.metrics import specificity_score
+from sklearn.base import clone
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, f1_score, balanced_accuracy_score, \
+    precision_score, recall_score, cohen_kappa_score
 
 
-def two_layer_hie(model_type: str, X_train: pd.DataFrame, X_test: pd.DataFrame, y_train: pd.DataFrame,
-                  y_test: pd.DataFrame) -> pd.DataFrame:
-    df = pd.DataFrame()
-    '''data preprocessing'''
-    # read data
-    df = pd.read_csv("datasets/preprocessed/maintenance_data.csv")
-    # df = pd.read_csv("datasets/preprocessed/mnist_imb.csv")
-    df.drop(['PCA1', 'PCA2'], axis=1, inplace=True)
+def two_layer_hie(model: object, X_train: pd.DataFrame, X_test: pd.DataFrame, y_train: pd.DataFrame,
+                  y_test: pd.DataFrame, verbose = False) -> pd.DataFrame:
+    """
+    Implement the two layer hierarchical method as described in the module comments above.
 
-    # data preprocessing
-    # df = pd.get_dummies(df, columns=['type'], dtype=int)
+    :param model: classifier.
+    :param X_train: training data.
+    :param X_test: testing data.
+    :param y_train: training label.
+    :param y_test: testing label.
 
-    # reorder columns
-    # all_columns = list(df.columns)
-    # last_columns = all_columns[-3:]
-    # remaining_columns = all_columns[:-3]
-    # new_order = last_columns + remaining_columns
-    # df_final = df[new_order]
-    df_final = df
+    :param verbose: whether to print out the confusion matrix or not.
 
-    # turn into np array
-    X = df_final.iloc[:, :-2]#.to_numpy()
-    y = df_final.iloc[:, -1]#.astype(int).to_numpy()
+    :return: the dataframe with the classification metrics.
+    """
 
-    f1 = []
+    record_metrics = ['model', 'method', 'acc', 'kappa', 'bacc', 'precision', 'recall', 'specificity', 'f1']
+    metrics = {key: [] for key in record_metrics}
 
-    '''modeling seq'''
-    for rand_state in range(N_REP):
-        X_train, X_test, y_train, y_test = train_test_split(X, y, stratify=y, test_size=0.3, random_state=rand_state)
+    # training
+    # multi-class model for failure types
+    multi_model = xgb.XGBClassifier().fit(X_train[y_train != 0], y_train[y_train != 0] - 1)
 
-        # multi-class model for failure types
-        multi_model = xgb.XGBClassifier().fit(X_train[y_train != 0], y_train[y_train != 0] - 1)
+    # local models
+    local_models = {}
+    for sub in range(1, int(y_train.nunique())):
+        local_model = clone(model)
 
-        # local models
-        local_models = {}
-        for sub in range(1, len(df_final['failure.type'].value_counts())):
-            model = xgb.XGBClassifier()
+        # select only majority and minority sub
+        X_train_local = X_train[(y_train == sub) | (y_train == 0)]
+        y_train_local = y_train[(y_train == sub) | (y_train == 0)]
+        y_train_local[y_train_local != 0] = 1  # turn non-zero sub minority into 1
+        local_model.fit(X_train_local, y_train_local)
 
-            # select only majority and minority sub
-            X_train_local = X_train[(y_train == sub) | (y_train == 0)]
-            y_train_local = y_train[(y_train == sub) | (y_train == 0)]
-            y_train_local[y_train_local != 0] = 1  # turn non-zero sub minority into 1
-            model.fit(X_train_local, y_train_local)
+        local_models[f"local_model_{sub}"] = model
 
-            local_models[f"local_model_{sub}" ] = model
+    # testing
+    y_pred_sub = multi_model.predict(X_test) + 1
 
-        # testing
-        y_pred_sub = multi_model.predict(X_test) + 1
+    y_pred = np.full((len(y_test), ), -1)
+    for sub in range(1, int(y_train.nunique())):
+        mdl = f"local_model_{sub}"
+        indices = np.where(y_pred_sub == sub)
+        y_pred[indices[0]] = local_models[mdl].predict(X_test.iloc[indices[0], :])
 
-        y_pred_final = np.full((len(y_test), ), 0)
-        for sub in range(1, len(df_final['failure.type'].value_counts())):
-            mdl = f"local_model_{sub}"
-            indices = np.where(y_pred_sub == sub)
-            y_pred_final[indices[0]] = local_models[mdl].predict(X_test.iloc[indices[0], :])
+    y_test[y_test != 0] = 1  # turn all sub minority into 1
 
-        # collapsed y_test to binary
-        y_test = np.where(y_test != 0, 1, 0)
+    if verbose:
+        print(f'Two Layer Hierarchical {model}')
+        print(confusion_matrix(y_test, y_pred, labels=[0, 1]))
+        print(classification_report(y_test, y_pred))
 
-        # classification performance
-        print("Proposed model performance")
-        print(confusion_matrix(y_test, y_pred_final))
-        print(classification_report(y_test, y_pred_final))
-        f1.append(f1_score(y_test, y_pred_final))
+    # Store performance
+    metrics['acc'].append(round(accuracy_score(y_test, y_pred), 4))
+    metrics['kappa'].append(round(cohen_kappa_score(y_test, y_pred), 4))
+    metrics['bacc'].append(round(balanced_accuracy_score(y_test, y_pred), 4))
+    metrics['precision'].append(round(precision_score(y_test, y_pred), 4))
+    metrics['recall'].append(round(recall_score(y_test, y_pred), 4))
+    metrics['specificity'].append(round(specificity_score(y_test, y_pred), 4))
+    metrics['f1'].append(round(f1_score(y_test, y_pred), 4))
 
-    print(f"mean f1: {round(np.mean(f1), 4)}")
-    print(f"s.e. f1: {round(np.std(f1) / math.sqrt(len(f1)), 4)}")
-    return df
+    metrics['model'].append(model)
+    metrics['method'].append("twoLayerHie")
+
+    return pd.DataFrame(metrics)

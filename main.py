@@ -14,6 +14,7 @@ from divide_n_conquer import divide_n_conquer
 from multi_class_clf import multi_clf, multi_analysis
 from typing import List
 import xgboost as xgb
+from two_layer_hie import two_layer_hie
 
 
 def main(dataset: str, model_types: List[str], n_rep: int):
@@ -47,12 +48,12 @@ def main(dataset: str, model_types: List[str], n_rep: int):
         for model in tqdm(model_types):
             res_bin = binary(model, X_train.copy(), X_test.copy(), y_train.copy(), y_test.copy(), verbose=True)
             res_dnc = divide_n_conquer(model, X_train.copy(), X_test.copy(), y_train.copy(), y_test.copy(), verbose=True)
-            # res_twoLH = two_layer_hie()
+            res_twoLH = two_layer_hie(model, X_train.copy(), X_test.copy(), y_train.copy(), y_test.copy(), verbose=True)
             # res_threeLH = three_layer_hie()
             # res_ovo = multi_clf(model, X_train, X_test, y_train, y_test, framework = "OvO")
             # res_ovr = multi_clf(model, X_train, X_test, y_train, y_test, framework = "OvO")
             # res_dir = multi_clf(model, X_train, X_test, y_train, y_test, framework="Direct")
-            res_df = pd.concat([res_df, res_bin, res_dnc], axis=0)
+            res_df = pd.concat([res_df, res_bin, res_dnc, res_twoLH], axis=0)
             # res_df = pd.concat([res_df, res_bin, res_dnc, res_twoLH, res_threeLH, res_ovo, res_ovr, res_dir], axis=0)
 
     # average the performance
