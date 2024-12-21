@@ -30,7 +30,7 @@ def main(dataset: str, model_types: List[str], n_rep: int):
     for i in range(n_rep):
         if dataset == 'MPMC':
             df = pd.read_csv("datasets/preprocessed/maintenance_data.csv")
-            X_train, X_test, y_train, y_test = train_test_split(df.iloc[:, :-4], df['target'], test_size=0.3,
+            X_train, X_test, y_train, y_test = train_test_split(df.iloc[:, :-4], df['failure.type'], test_size=0.3,
                                                                 stratify=df['failure.type'], random_state=i)
         elif dataset == 'nij':
             df = pd.read_csv("datasets/preprocessed/nij_data.csv")
@@ -45,14 +45,15 @@ def main(dataset: str, model_types: List[str], n_rep: int):
 
         # run models
         for model in tqdm(model_types):
-            res_bin = binary(model, X_train, X_test, y_train, y_test)
-            res_dnc = divide_n_conquer(model, X_train, X_test, y_train, y_test)
-            res_twoLH = two_layer_hie()
-            res_threeLH = three_layer_hie()
-            res_ovo = multi_clf(model, X_train, X_test, y_train, y_test, framework = "OvO")
-            res_ovr = multi_clf(model, X_train, X_test, y_train, y_test, framework = "OvO")
-            res_dir = multi_clf(model, X_train, X_test, y_train, y_test, framework="Direct")
-        res_df = pd.concat([res_df, res_bin, res_dnc, res_twoLH, res_threeLH, res_ovo, res_ovr, res_dir], axis=0)
+            res_bin = binary(model, X_train.copy(), X_test.copy(), y_train.copy(), y_test.copy(), verbose=True)
+            res_dnc = divide_n_conquer(model, X_train.copy(), X_test.copy(), y_train.copy(), y_test.copy(), verbose=True)
+            # res_twoLH = two_layer_hie()
+            # res_threeLH = three_layer_hie()
+            # res_ovo = multi_clf(model, X_train, X_test, y_train, y_test, framework = "OvO")
+            # res_ovr = multi_clf(model, X_train, X_test, y_train, y_test, framework = "OvO")
+            # res_dir = multi_clf(model, X_train, X_test, y_train, y_test, framework="Direct")
+            res_df = pd.concat([res_df, res_bin, res_dnc], axis=0)
+            # res_df = pd.concat([res_df, res_bin, res_dnc, res_twoLH, res_threeLH, res_ovo, res_ovr, res_dir], axis=0)
 
     # average the performance
     return res_df.groupby(by=["method", "model"]).mean()
