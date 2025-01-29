@@ -7,6 +7,7 @@ import sys
 from itertools import combinations
 import numpy as np
 import pandas as pd
+from imblearn.metrics import specificity_score
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 import xgboost as xgb
 from sklearn.linear_model import LogisticRegression
@@ -15,7 +16,7 @@ from sklearn.tree import DecisionTreeClassifier, plot_tree
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix, cohen_kappa_score, accuracy_score, \
-    balanced_accuracy_score, precision_recall_fscore_support
+    balanced_accuracy_score, precision_recall_fscore_support, precision_score, recall_score, f1_score
 from sklearn import tree, clone
 
 
@@ -69,21 +70,21 @@ def multi_clf(model: object, strat: str, X_train: pd.DataFrame, X_test: pd.DataF
     y_pred = np.where(y_pred_multi > 0, 1, 0)
     y_test = np.where(y_test > 0, 1, 0)
 
-    acc = accuracy_score(y_test, y_pred)
-    bacc = balanced_accuracy_score(y_test, y_pred)
-    precision, recall, f1, _ = precision_recall_fscore_support(y_test, y_pred)
-    tn, fp, fn, tp = np.ravel(confusion_matrix(y_test, y_pred))
-    spec = tn / (tn + fp)
+    if verbose:
+        print(f'Multi-class {model}')
+        print(confusion_matrix(y_test, y_pred, labels=[0, 1]))
+        print(classification_report(y_test, y_pred))
 
     # Store performance
-    metrics['acc'].append(round(acc, 4))
-    metrics['bacc'].append(round(bacc, 4))
-    metrics['precision'].append(round(precision[1], 4))
-    metrics['recall'].append(round(recall[1], 4))
-    metrics['specificity'].append(round(spec, 4))
-    metrics['f1'].append(round(f1[1], 4))
+    metrics['acc'].append(round(accuracy_score(y_test, y_pred), 4))
+    metrics['kappa'].append(round(cohen_kappa_score(y_test, y_pred), 4))
+    metrics['bacc'].append(round(balanced_accuracy_score(y_test, y_pred), 4))
+    metrics['precision'].append(round(precision_score(y_test, y_pred), 4))
+    metrics['recall'].append(round(recall_score(y_test, y_pred), 4))
+    metrics['specificity'].append(round(specificity_score(y_test, y_pred), 4))
+    metrics['f1'].append(round(f1_score(y_test, y_pred), 4))
 
-    # print rep output
-    print(f'Multi-class {model}')
-    print(confusion_matrix(y_test, y_pred, labels=[0, 1]))
-    print(classification_report(y_test, y_pred))
+    metrics['model'].append(model)
+    metrics['method'].append(f"multi_{strat}")
+
+    return pd.DataFrame(metrics)
