@@ -11,18 +11,18 @@ from sklearn.tree import DecisionTreeClassifier
 from tqdm import tqdm
 from binary_clf import binary
 from divide_n_conquer import divide_n_conquer
-from multi_class_clf import multi_clf, multi_analysis
+from multi_class_clf import multi_clf
 from typing import List
 import xgboost as xgb
 from two_layer_hie import two_layer_hie
 
 
-def main(dataset: str, model_types: List[str], n_rep: int):
+def main(dataset: str, models: List[str], n_rep: int) -> pd.DataFrame:
     """
     Run through all the methods for comparison.
 
     :param dataset: dataset for testing.
-    :param model_types: types of models used for classification.
+    :param models: types of models used for classification.
     :param n_rep: number of replications.
     """
     res_df = pd.DataFrame()
@@ -45,7 +45,7 @@ def main(dataset: str, model_types: List[str], n_rep: int):
             raise Exception("Invalid dataset.")
 
         # run models
-        for model in tqdm(model_types):
+        for model in tqdm(models):
             res_bin = binary(model, X_train.copy(), X_test.copy(), y_train.copy(), y_test.copy(), verbose=True)
             res_dnc = divide_n_conquer(model, X_train.copy(), X_test.copy(), y_train.copy(), y_test.copy(), verbose=True)
             res_twoLH = two_layer_hie(model, X_train.copy(), X_test.copy(), y_train.copy(), y_test.copy(), verbose=True)
@@ -57,15 +57,18 @@ def main(dataset: str, model_types: List[str], n_rep: int):
             # res_df = pd.concat([res_df, res_bin, res_dnc, res_twoLH, res_threeLH, res_ovo, res_ovr, res_dir], axis=0)
 
     # average the performance
-    return res_df.groupby(by=["method", "model"]).mean()
+    return res_df.groupby(by=["method", "model"], sort=False).mean()
 
 
 if __name__ == "__main__":
     N_REP = 2
-    model_types = [LogisticRegression(), DecisionTreeClassifier(), RandomForestClassifier(), xgb.XGBClassifier()]
-    dataset = "MPMC"
+    MODELS = [LogisticRegression(max_iter=1000), DecisionTreeClassifier(), RandomForestClassifier(),
+              xgb.XGBClassifier()]
+    DATASET = "MPMC"
 
-    res = main(dataset, model_types, N_REP)
+    res = main(DATASET, MODELS, N_REP)
 
     # save the result...
+    filename = "results_0127.csv"
+    res.to_csv(filename)
 
