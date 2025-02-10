@@ -22,8 +22,12 @@ def main():
                                                     'specificity', 'f1']]
 
     for metric in metrics:
-        plt.figure(figsize=(15, 6))
-        sns.barplot(data=df, x="model", y=metric, hue="method", ci=None, dodge=True)
+        plt.figure(figsize=(15, 8))
+        ax = sns.barplot(data=df, x="model", y=metric, hue="method", ci=None, dodge=True)
+
+        # Annotate bars with their values
+        for container in ax.containers:
+            ax.bar_label(container, fmt="%.2f", padding=3)  # Format to 2 decimal places
 
         # Labels and title
         plt.xlabel("Model")
