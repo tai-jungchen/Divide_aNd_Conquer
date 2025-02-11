@@ -15,6 +15,7 @@ from multi_class_clf import multi_clf
 from typing import List
 import xgboost as xgb
 from two_layer_hie import two_layer_hie
+from ood_hie import ood_2hie, ood_3hie
 
 
 def main(dataset: str, models: List[str], n_rep: int) -> pd.DataFrame:
@@ -46,14 +47,17 @@ def main(dataset: str, models: List[str], n_rep: int) -> pd.DataFrame:
 
         # run models
         for model in tqdm(models):
+            # res_oodH = ood_hie_test(model, X_train.copy(), X_test.copy(), y_train.copy(), y_test.copy(), verbose=True)
+
             res_bin = binary(model, X_train.copy(), X_test.copy(), y_train.copy(), y_test.copy(), verbose=True)
             res_dnc = divide_n_conquer(model, X_train.copy(), X_test.copy(), y_train.copy(), y_test.copy(), verbose=True)
             res_twoLH = two_layer_hie(model, X_train.copy(), X_test.copy(), y_train.copy(), y_test.copy(), verbose=True)
-            # res_threeLH = three_layer_hie()
+            res_ood3H = ood_3hie(model, X_train.copy(), X_test.copy(), y_train.copy(), y_test.copy(), verbose=True)
+            res_ood2H = ood_2hie(model, X_train.copy(), X_test.copy(), y_train.copy(), y_test.copy(), verbose=True)
             res_ovo = multi_clf(model, "OvO", X_train, X_test, y_train, y_test)
             res_ovr = multi_clf(model, "OvR", X_train, X_test, y_train, y_test)
             res_dir = multi_clf(model, "Direct", X_train, X_test, y_train, y_test)
-            res_df = pd.concat([res_df, res_bin, res_dnc, res_twoLH, res_ovo, res_ovr, res_dir], axis=0)
+            res_df = pd.concat([res_df, res_bin, res_dnc, res_twoLH, res_ood3H, res_ood2H, res_ovo, res_ovr, res_dir], axis=0)
 
     # average the performance
     return res_df.groupby(by=["method", "model"], sort=False).mean()
@@ -68,6 +72,6 @@ if __name__ == "__main__":
     res = main(DATASET, MODELS, N_REP)
 
     # save the result...
-    filename = "results_0129.csv"
+    filename = "results_0210_95.csv"
     res.to_csv(filename)
 
