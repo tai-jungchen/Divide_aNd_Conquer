@@ -4,9 +4,12 @@ Author: Alex (Tai-Jung) Chen
 This code implements the proposed DNC method. DNC uses partial OvO and customized decision rules in voting to cope with
 imbalance data classification with subclass information available in the minority class.
 """
+import itertools
+from sklearn.model_selection import StratifiedKFold
 import numpy as np
 import pandas as pd
 from imblearn.metrics import specificity_score
+from sklearn.metrics import f1_score
 from imblearn.under_sampling import RandomUnderSampler
 from sklearn.metrics import classification_report, confusion_matrix, cohen_kappa_score, accuracy_score, \
     balanced_accuracy_score, precision_score, recall_score, f1_score
@@ -17,10 +20,11 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.decomposition import PCA
 from scipy.optimize import minimize
+from sklearn.model_selection import train_test_split
 
 
 def divide_n_conquer(model: object, X_train: pd.DataFrame, X_test: pd.DataFrame, y_train: pd.DataFrame,
-                     y_test: pd.DataFrame, verbose: bool = False) -> pd.DataFrame:
+                     y_test: pd.DataFrame, smote_param: dict = None, verbose: bool = False) -> pd.DataFrame:
     """
     Carry out the DNC method on the Machine Predictive Maintenance Classification dataset. The classification results
     will be stored to a .csv file and the console information will be store to a .txt file.
@@ -35,12 +39,8 @@ def divide_n_conquer(model: object, X_train: pd.DataFrame, X_test: pd.DataFrame,
 
     :return: the dataframe with the classification metrics.
     """
-
     record_metrics = ['model', 'method', 'acc', 'kappa', 'bacc', 'precision', 'recall', 'specificity', 'f1']
     metrics = {key: [] for key in record_metrics}
-
-    smote = SMOTE(random_state=42, k_neighbors=1)
-    pca = PCA()
 
     y_train_preds = []
     y_preds = []
@@ -51,30 +51,29 @@ def divide_n_conquer(model: object, X_train: pd.DataFrame, X_test: pd.DataFrame,
         y_train_local = y_train[(y_train == sub) | (y_train == 0)]
         y_train_local[y_train_local != 0] = 1  # turn non-zero sub minority into 1
 
-        # ##### SMOTE #####
-        # # rus = RandomUnderSampler(sampling_strategy=0.5, random_state=42)  # Majority to Minority ratio 0.5
-        # # X_resampled, y_resampled = rus.fit_resample(X_train_local, y_train_local)
-        #
-        # X_final, y_final = smote.fit_resample(X_train_local, y_train_local)
-        #
-        # # Visualize the new class distribution
-        # # Fit and transform the data
-        # transformed_data = pca.fit_transform(X_final)
-        # # plt.scatter(transformed_data[y_final == 0, 0], transformed_data[y_final == 0, 1], c='blue', label='Pass')
-        # # plt.scatter(transformed_data[y_final == 1, 0], transformed_data[y_final == 1, 1], c='red', label='Failure type 1')
-        # # plt.show()
-        # local_model.fit(X_final, y_final)
-        # ##### SMOTE #####
+        # smote #
+        if smote_param:
+            opt_smote_param = smote_tuning(X_train_local, y_train_local, smote_param, clone(model))
+            print(f"local model {sub}'s opt_smote_param: {opt_smote_param}")
+            smote = SMOTE(sampling_strategy={1: opt_smote_param['sampling_strategy']}, k_neighbors=opt_smote_param[
+                'k_neighbors'], random_state=21)
+            X_final, y_final = smote.fit_resample(X_train_local, y_train_local)
+            local_model.fit(X_final, y_final)
 
-        local_model.fit(X_train_local, y_train_local)
+            # Visualize the new class distribution
+            # pca = PCA()
+            # transformed_data = pca.fit_transform(X_final)
+            # plt.scatter(transformed_data[y_final == 0, 0], transformed_data[y_final == 0, 1], c='blue', label='Pass')
+            # plt.scatter(transformed_data[y_final == 1, 0], transformed_data[y_final == 1, 1], c='red', label='Failure type 1')
+            # plt.show()
+        else:
+            local_model.fit(X_train_local, y_train_local)
+
         y_train_preds.append(local_model.predict(X_train))
-
         y_pred_sub = local_model.predict(X_test)
         y_preds.append(y_pred_sub)
 
     # voting
-    # fit_theta(y_train_preds, y_train)
-
     y_preds = np.array(y_preds)
     y_pred = np.where(np.sum(y_preds, axis=0) > 0, 1, 0)
     y_test[y_test != 0] = 1  # turn all sub minority into 1
@@ -94,44 +93,37 @@ def divide_n_conquer(model: object, X_train: pd.DataFrame, X_test: pd.DataFrame,
     metrics['f1'].append(round(f1_score(y_test, y_pred), 4))
 
     metrics['model'].append(model)
-    metrics['method'].append("dnc")
+    metrics['method'].append(f"dnc_smote_{smote_param}")
 
     return pd.DataFrame(metrics)
 
 
-def fit_theta(preds, truth):
-    constraints = (
-        {'type': 'eq', 'fun': lambda theta: np.sum(theta) - 1},  # Sum of weights = 1
-    )
-    # Bounds for weights (0 ≤ theta_i ≤ 1)
-    bounds = [(0, 1) for _ in range(preds.shape[1])]
+def smote_tuning(X: pd.DataFrame, y: pd.Series, param_grid: dict, mdl: object, k_fold=5) -> dict:
+    """
+    Perform the grid search for smote.
 
-    # Initial guess (equal weights)
-    initial_theta = np.ones(preds.shape[1]) / preds.shape[1]
+    :param X:
+    :param y:
+    :param param_grid: Dictionary that stores the hyper-parameter for SMOTE
+    :param mdl: model to be fit
+    :param k_fold: number of fold
 
-    # Optimization
-    result = minimize(mse_loss, initial_theta, args=(preds, truth), method='SLSQP', bounds=bounds,
-                      constraints=constraints)
+    :return: Optimal SMOTE hyper-parameter.
+    """
+    # Generate all combinations
+    keys = param_grid.keys()
+    values = param_grid.values()
 
-    # Optimal theta
-    optimal_theta = result.x
-    print("Optimal Weights (Theta):", optimal_theta)
-    print("Minimum Log Loss:", result.fun)
+    combinations = [dict(zip(keys, v)) for v in itertools.product(*values)]
+    cv_scores = {}
+    for p in combinations:
+        skf = StratifiedKFold(n_splits=k_fold, shuffle=True, random_state=21)
+        zs = 0
+        for train_index, test_index in skf.split(X, y):
+            smote = SMOTE(sampling_strategy={1: p['sampling_strategy']}, k_neighbors=p['k_neighbors'], random_state=21)
+            X_train, y_train = smote.fit_resample(X.iloc[train_index], y.iloc[train_index])
+            mdl.fit(X_train, y_train)
+            zs += f1_score(y.iloc[test_index], mdl.predict(X.iloc[test_index]))
+        cv_scores[frozenset(p.items())] = zs / k_fold
+    return dict(max(cv_scores, key=cv_scores.get))
 
-
-def log_loss(theta, preds, truth):
-    # Weighted sum of predictions
-    final_pred = np.dot(preds, theta)
-    # Clip values to avoid log(0)
-    final_pred = np.clip(final_pred, 1e-15, 1 - 1e-15)
-    # Calculate Log Loss
-    loss = -np.mean(truth * np.log(final_pred) + (1 - truth) * np.log(1 - final_pred))
-    return loss
-
-
-def mse_loss(theta, preds, truth):
-    # Weighted sum of predictions
-    final_pred = np.dot(preds, theta)
-    # Calculate MSE
-    loss = np.mean((truth - final_pred) ** 2)
-    return loss
