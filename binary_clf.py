@@ -7,6 +7,7 @@ import pandas as pd
 from sklearn.metrics import (classification_report, confusion_matrix, accuracy_score, balanced_accuracy_score,
                              cohen_kappa_score, precision_score, recall_score, f1_score)
 from imblearn.metrics import specificity_score
+from sklearn.tree import DecisionTreeClassifier
 
 
 def binary(model: object, X_train: pd.DataFrame, X_test: pd.DataFrame, y_train: pd.DataFrame, y_test: pd.DataFrame,

@@ -18,6 +18,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix, cohen_kappa_score, accuracy_score, \
     balanced_accuracy_score, precision_recall_fscore_support, precision_score, recall_score, f1_score
 from sklearn import tree, clone
+from sklearn.svm import SVC
 
 
 def multi_clf(model: object, strat: str, X_train: pd.DataFrame, X_test: pd.DataFrame, y_train: pd.DataFrame,
@@ -49,9 +50,9 @@ def multi_clf(model: object, strat: str, X_train: pd.DataFrame, X_test: pd.DataF
             multi_model = OneVsRestClassifier(model)
         elif strat == 'Direct':
             multi_model = clone(model).set_params(multi_class='multinomial')
-    # RF / XGB / DT
+    # RF / XGB / DT / SVM
     elif (isinstance(model, RandomForestClassifier) or isinstance(model, xgb.XGBClassifier)
-          or isinstance(model, DecisionTreeClassifier)):
+          or isinstance(model, DecisionTreeClassifier) or isinstance(model, SVC)):
         if strat == 'OvO':
             multi_model = OneVsOneClassifier(model)
         elif strat == 'OvR':

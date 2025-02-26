@@ -45,8 +45,12 @@ def ood_2hie(model: object, X_train: pd.DataFrame, X_test: pd.DataFrame, y_train
     metrics = {key: [] for key in record_metrics}
 
     # training
-    # ood
-    ood_model = OneClassSVM(kernel='rbf', gamma=0.001, nu=0.95).fit(X_train[y_train == 0], y_train[y_train == 0])
+    y_train_bin = y_train.copy()
+    y_train_bin[y_train_bin != 0] = 1
+
+    # ood_model = OneClassSVM(kernel='rbf', gamma=0.001, nu=0.95).fit(X_train[y_train == 0], y_train[y_train == 0])
+    ood_model = clone(model)
+    ood_model.fit(X_train, y_train_bin)
 
     # testing
     y_pred_ood = ood_model.predict(X_test)
@@ -62,8 +66,10 @@ def ood_2hie(model: object, X_train: pd.DataFrame, X_test: pd.DataFrame, y_train
 
         local_model.fit(X_train_local, y_train_local)
 
-        y_pred_sub[np.where(y_pred_ood == -1)] = local_model.predict(X_test.iloc[y_pred_ood == -1])
-        y_pred_sub[np.where(y_pred_ood == 1)] = 0
+        y_pred_sub[np.where(y_pred_ood == 1)] = local_model.predict(X_test.iloc[y_pred_ood == 1])
+        y_pred_sub[np.where(y_pred_ood == 0)] = 0
+        # y_pred_sub[np.where(y_pred_ood == -1)] = local_model.predict(X_test.iloc[y_pred_ood == -1])
+        # y_pred_sub[np.where(y_pred_ood == 1)] = 0
         y_preds.append(y_pred_sub)
 
     # voting

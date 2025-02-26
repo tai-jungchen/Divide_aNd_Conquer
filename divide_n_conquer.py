@@ -21,6 +21,8 @@ import seaborn as sns
 from sklearn.decomposition import PCA
 from scipy.optimize import minimize
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.tree import DecisionTreeClassifier
 
 
 def divide_n_conquer(model: object, X_train: pd.DataFrame, X_test: pd.DataFrame, y_train: pd.DataFrame,
@@ -69,7 +71,10 @@ def divide_n_conquer(model: object, X_train: pd.DataFrame, X_test: pd.DataFrame,
         else:
             local_model.fit(X_train_local, y_train_local)
 
-        y_train_preds.append(local_model.predict(X_train))
+        # print("Local model performance:")
+        # print(confusion_matrix(y_train_local, local_model.predict(X_train_local), labels=[0, 1]))
+        # print(classification_report(y_train_local, local_model.predict(X_train_local)))
+
         y_pred_sub = local_model.predict(X_test)
         y_preds.append(y_pred_sub)
 
@@ -93,7 +98,10 @@ def divide_n_conquer(model: object, X_train: pd.DataFrame, X_test: pd.DataFrame,
     metrics['f1'].append(round(f1_score(y_test, y_pred), 4))
 
     metrics['model'].append(model)
-    metrics['method'].append(f"dnc_smote_{smote_param}")
+    if smote_param:
+        metrics['method'].append(f"dnc_smote")
+    else:
+        metrics['method'].append(f"dnc")
 
     return pd.DataFrame(metrics)
 
