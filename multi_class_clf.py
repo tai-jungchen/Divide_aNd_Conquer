@@ -3,12 +3,10 @@ Author: Alex (Tai-Jung) Chen
 
 Implement the multi-class classification and collapse the classification to binary.
 """
-import sys
 from itertools import combinations
 import numpy as np
 import pandas as pd
 from imblearn.metrics import specificity_score
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 import xgboost as xgb
 from sklearn.linear_model import LogisticRegression
 from sklearn.multiclass import OneVsOneClassifier, OneVsRestClassifier
@@ -33,12 +31,10 @@ def multi_clf(model: object, strat: str, X_train: pd.DataFrame, X_test: pd.DataF
     :param X_test: testing data.
     :param y_train: training label. Note that these are the multi-class labels
     :param y_test: testing label. Note that these are the multi-class labels
-
     :param verbose: whether to print out the confusion matrix or not.
-
     :return: the dataframe with the classification metrics.
     """
-    record_metrics = ['model', 'method', 'acc', 'kappa', 'bacc', 'precision', 'recall', 'specificity', 'f1']
+    record_metrics = ['model', 'method', 'f1', 'precision', 'recall', 'kappa', 'bacc', 'acc', 'specificity']
     metrics = {key: [] for key in record_metrics}
 
     # Logistic Regression

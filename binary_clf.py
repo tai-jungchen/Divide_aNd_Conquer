@@ -1,7 +1,7 @@
 """
 Author: Alex (Tai-Jung) Chen
 
-Test the performance of binary method.
+Implement the binary method. This method treats all minority subclasses as minority class.
 """
 import pandas as pd
 from sklearn.metrics import (classification_report, confusion_matrix, accuracy_score, balanced_accuracy_score,
@@ -13,8 +13,7 @@ from sklearn.tree import DecisionTreeClassifier
 def binary(model: object, X_train: pd.DataFrame, X_test: pd.DataFrame, y_train: pd.DataFrame, y_test: pd.DataFrame,
            verbose: bool = False) -> pd.DataFrame:
     """
-    Carry out the binary method. The data will be partitioned and given from main.py to ensure identical train test
-    split is used between different method.
+    Carry out the binary method. This method treats all minority subclasses as minority class.
 
     :param model: classifier.
     :param X_train: training data.
