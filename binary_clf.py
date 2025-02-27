@@ -27,15 +27,15 @@ def binary(model: object, X_train: pd.DataFrame, X_test: pd.DataFrame, y_train: 
     :return: the dataframe with the classification metrics.
     """
     # metrics
-    record_metrics = ['model', 'method', 'acc', 'kappa', 'bacc', 'precision', 'recall', 'specificity', 'f1']
+    record_metrics = ['model', 'method', 'f1', 'precision', 'recall', 'kappa', 'bacc', 'acc', 'specificity']
     metrics = {key: [] for key in record_metrics}
 
+    # convert multi-class to binary class
     y_train[y_train != 0] = 1
     y_test[y_test != 0] = 1
 
+    # train & test
     model.fit(X_train, y_train)
-
-    # testing #
     y_pred = model.predict(X_test)
     if verbose:
         print(f'Binary {model}')
