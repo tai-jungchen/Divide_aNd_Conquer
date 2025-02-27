@@ -84,7 +84,7 @@ def divide_n_conquer_lda(model: object, X_train: pd.DataFrame, X_test: pd.DataFr
     y_test[y_test != 0] = 1  # turn all sub minority into 1
 
     if verbose:
-        print(f'DNC SMOTE LDA {model}')
+        print(f'DNC LDA with SMOTE {model}') if smote_param else print(f'DNC LDA {model}')
         print(confusion_matrix(y_test, y_pred, labels=[0, 1]))
         print(classification_report(y_test, y_pred))
 
@@ -96,14 +96,16 @@ def divide_n_conquer_lda(model: object, X_train: pd.DataFrame, X_test: pd.DataFr
     metrics['recall'].append(round(recall_score(y_test, y_pred), 4))
     metrics['specificity'].append(round(specificity_score(y_test, y_pred), 4))
     metrics['f1'].append(round(f1_score(y_test, y_pred), 4))
-
     metrics['model'].append(model)
-    metrics['method'].append(f"dnc_smote_lda")
 
     if smote_param:
-        metrics['method'].append(f"dnc_lda_smote")
+        if smote_param['type'] == "SMOTE":
+            metrics['method'].append(f"dnc_lda_smote")
+        elif smote_param['type'] == "Borderline":
+            metrics['method'].append(f"dnc_lda_borderline")
+        else:
+            raise Exception("Invalid SMOTE type")
     else:
         metrics['method'].append(f"dnc_lda")
-
     return pd.DataFrame(metrics)
 

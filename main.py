@@ -23,22 +23,22 @@ from divide_n_conquer_lda import divide_n_conquer_lda
 from sklearn.preprocessing import StandardScaler
 
 
-def main(dataset: str, models: List[str], n_rep: int, smote_param: dict) -> pd.DataFrame:
+def main(dataset: str, models: List[str], n_rep: int, smote_param_1: dict, smote_param_2: dict) -> pd.DataFrame:
     """
     Run through all the methods for comparison.
 
     :param dataset: dataset for testing.
     :param models: types of models used for classification.
     :param n_rep: number of replications.
-    :param smote_param: dictionary that stores the hyper-parameters for SMOTE
-
+    :param smote_param_1: dictionary that stores the hyper-parameters for SMOTE type 1
+    :param smote_param_2: dictionary that stores the hyper-parameters for SMOTE type 2
     :return results stored in the DataFrame.
     """
     res_df = pd.DataFrame()
     scaler = StandardScaler()
 
     # read data
-    for i in range(n_rep):
+    for i in tqdm(range(n_rep)):
         if dataset == 'MPMC':
             # df = pd.read_csv("datasets/preprocessed/maintenance_data.csv")
             # df = df[df['failure.type'] != 5]
@@ -72,7 +72,7 @@ def main(dataset: str, models: List[str], n_rep: int, smote_param: dict) -> pd.D
         X_test_scaled = scaler.transform(X_test)
 
         # run models
-        for model in tqdm(models):
+        for model in models:
             # res_oodH = ood_hie_test(model, X_train_scaled.copy(), X_test_scaled.copy(), y_train.copy(), y_test.copy(), verbose=True)
             # newres_kmeans = divide_n_conquer_plus(model, X_train_scaled.copy(), X_test_scaled.copy(), y_train.copy(), y_test.copy(),
             #                                "kmeans", verbose=True)
@@ -86,12 +86,15 @@ def main(dataset: str, models: List[str], n_rep: int, smote_param: dict) -> pd.D
             res_bin = binary(model, X_train_scaled.copy(), X_test_scaled.copy(), y_train.copy(), y_test.copy())
             res_dnc = divide_n_conquer(model, X_train_scaled.copy(), X_test_scaled.copy(), y_train.copy(), y_test.copy())
             res_dnc_smote = (divide_n_conquer(model, X_train_scaled.copy(), X_test_scaled.copy(), y_train.copy(), y_test.copy(),
-                                              smote_param=smote_param))
+                                              smote_param=smote_param_1))
+            res_dnc_borderline = (divide_n_conquer(model, X_train_scaled.copy(), X_test_scaled.copy(), y_train.copy(),
+                                                   y_test.copy(), smote_param=smote_param_2))
             res_dnc_lda = divide_n_conquer_lda(model, X_train_scaled.copy(), X_test_scaled.copy(), y_train.copy(),
-                                               y_test.copy(), verbose=True)
+                                               y_test.copy())
             res_dnc_lda_smote = divide_n_conquer_lda(model, X_train_scaled.copy(), X_test_scaled.copy(),
-                                                     y_train.copy(), y_test.copy(), smote_param=smote_param,
-                                                     verbose=True)
+                                                     y_train.copy(), y_test.copy(), smote_param=smote_param_1)
+            res_dnc_lda_borderline = divide_n_conquer_lda(model, X_train_scaled.copy(), X_test_scaled.copy(),
+                                                     y_train.copy(), y_test.copy(), smote_param=smote_param_2)
 
             # res_twoLH = two_layer_hie(model, X_train_scaled.copy(), X_test_scaled.copy(), y_train.copy(), y_test.copy(), verbose=True)
             # res_ood3H = ood_3hie(model, X_train_scaled.copy(), X_test_scaled.copy(), y_train.copy(), y_test.copy(), verbose=True)
@@ -99,25 +102,25 @@ def main(dataset: str, models: List[str], n_rep: int, smote_param: dict) -> pd.D
             res_ovo = multi_clf(model, "OvO", X_train_scaled, X_test_scaled, y_train, y_test)
             res_ovr = multi_clf(model, "OvR", X_train_scaled, X_test_scaled, y_train, y_test)
             res_dir = multi_clf(model, "Direct", X_train_scaled, X_test_scaled, y_train, y_test)
-            res_df = pd.concat([res_df, res_bin, res_dnc, res_dnc_smote, res_dnc_lda, res_dnc_lda_smote, res_ovo,
-                                res_ovr, res_dir], axis=0)
+            res_df = pd.concat([res_df, res_bin, res_dnc, res_dnc_smote, res_dnc_borderline, res_dnc_lda,
+                                res_dnc_lda_smote, res_dnc_lda_borderline, res_ovo, res_ovr, res_dir], axis=0)
 
     # average the performance
     return res_df.groupby(by=["method", "model"], sort=False).mean()
 
 
 if __name__ == "__main__":
-    N_REP = 1
+    N_REP = 10
 
     ##### MPMC #####
     DATASET = "MPMC"
     MODELS = [LogisticRegression(max_iter=10000), #SVC(kernel='linear', C=2),
               SVC(kernel='rbf', C=1), DecisionTreeClassifier(), RandomForestClassifier(),
               xgb.XGBClassifier()]
-    SMOTE_PARAM = {"type": "SMOTE",
+    SMOTE_PARAM_1 = {"type": "SMOTE",
                    "sampling_strategy": {1: 100, 2:100, 3: 100, 4: 100, 5: 100},
                    "k_neighbors": 1}
-    SMOTE_PARAM = {"type": "Borderline",
+    SMOTE_PARAM_2 = {"type": "Borderline",
                    "sampling_strategy": {1: 100, 2: 100, 3: 100, 4: 100, 5: 100},
                    "k_neighbors": 1}
     ##### MPMC #####
@@ -131,7 +134,7 @@ if __name__ == "__main__":
     #                "k_neighbors": np.linspace(1, 5, num=2).astype(int)}
     ##### USPS #####
 
-    res = main(DATASET, MODELS, N_REP, SMOTE_PARAM)
+    res = main(DATASET, MODELS, N_REP, SMOTE_PARAM_1, SMOTE_PARAM_2)
     filename = f"sum_results_0226_{DATASET}.csv"
     res.to_csv(filename)
 
