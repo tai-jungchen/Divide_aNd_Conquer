@@ -25,7 +25,7 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 
 
 def divide_n_conquer_lda(model: object, X_train: pd.DataFrame, X_test: pd.DataFrame, y_train: pd.DataFrame,
-                     y_test: pd.DataFrame, smote_param: dict = None, verbose: bool = False) -> pd.DataFrame:
+                     y_test: pd.DataFrame, smote: object = None, verbose: bool = False) -> pd.DataFrame:
     """
     Carry out the DNC method. The classification results.
 
@@ -34,7 +34,7 @@ def divide_n_conquer_lda(model: object, X_train: pd.DataFrame, X_test: pd.DataFr
     :param X_test: testing data.
     :param y_train: training label.
     :param y_test: testing label.
-    :param smote_param: SMOTE settings including SMOTE type, sampling strategy, and number of neighbors.
+    :param smote: SMOTE object
     :param verbose: whether to print out the confusion matrix or not.
 
     :return: the dataframe with the classification metrics.
@@ -43,15 +43,7 @@ def divide_n_conquer_lda(model: object, X_train: pd.DataFrame, X_test: pd.DataFr
     metrics = {key: [] for key in record_metrics}
 
     ##### smote #####
-    if smote_param:
-        if smote_param['type'] == "SMOTE":
-            smote = SMOTE(sampling_strategy=smote_param['sampling_strategy'], k_neighbors=smote_param['k_neighbors'],
-                          random_state=521)
-        elif smote_param['type'] == "Borderline":
-            smote = BorderlineSMOTE(sampling_strategy=smote_param['sampling_strategy'], k_neighbors=smote_param[
-                'k_neighbors'], kind='borderline-1', random_state=521)
-        else:
-            raise Exception("SMOTE type not exist!")
+    if smote:
         X_smote, y_smote = smote.fit_resample(X_train, y_train)
     ##### smote #####
     else:
@@ -63,7 +55,7 @@ def divide_n_conquer_lda(model: object, X_train: pd.DataFrame, X_test: pd.DataFr
     X_test_lda = lda.transform(X_test)
 
     # Print explained variance ratio
-    print("Explained variance ratio:", lda.explained_variance_ratio_)
+    print(" Explained variance ratio:", lda.explained_variance_ratio_)
 
     y_preds = []
     for sub in range(1, int(y_smote.nunique())):
@@ -98,13 +90,9 @@ def divide_n_conquer_lda(model: object, X_train: pd.DataFrame, X_test: pd.DataFr
     metrics['f1'].append(round(f1_score(y_test, y_pred), 4))
     metrics['model'].append(model)
 
-    if smote_param:
-        if smote_param['type'] == "SMOTE":
-            metrics['method'].append(f"dnc_lda_smote")
-        elif smote_param['type'] == "Borderline":
-            metrics['method'].append(f"dnc_lda_borderline")
-        else:
-            raise Exception("Invalid SMOTE type")
+    if smote:
+        smote_name = str(smote).split("(")[0]
+        metrics['method'].append(f"dnc_lda_{smote_name}")
     else:
         metrics['method'].append(f"dnc_lda")
     return pd.DataFrame(metrics)

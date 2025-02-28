@@ -3,35 +3,41 @@ Author: Alex (Tai-Jung) Chen
 
 Run through all the classification framework for comparison purpose.
 """
+from tqdm import tqdm
+from typing import List
 import numpy as np
 import pandas as pd
-from sklearn.svm import SVC
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import GaussianNB
 from sklearn.tree import DecisionTreeClassifier
-from tqdm import tqdm
+import xgboost as xgb
+from sklearn.naive_bayes import GaussianNB
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
+
+from imblearn.over_sampling import SMOTE, BorderlineSMOTE
+
 from binary_clf import binary
 from divide_n_conquer import divide_n_conquer
-from divide_n_conquer_with_unsupervised import divide_n_conquer_plus
 from multi_class_clf import multi_clf
-from typing import List
-import xgboost as xgb
 from two_layer_hie import two_layer_hie
 from ood_hie import ood_2hie, ood_3hie
 from divide_n_conquer_lda import divide_n_conquer_lda
-from sklearn.preprocessing import StandardScaler
 
 
-def main(dataset: str, models: List[str], n_rep: int, smote_param_1: dict, smote_param_2: dict) -> pd.DataFrame:
+def main(dataset: str, models: List[str], n_rep: int, smote_inst_1: object, smote_inst_2: object) -> pd.DataFrame:
     """
     Run through all the methods for comparison.
 
     :param dataset: dataset for testing.
     :param models: types of models used for classification.
     :param n_rep: number of replications.
-    :param smote_param_1: dictionary that stores the hyper-parameters for SMOTE type 1
-    :param smote_param_2: dictionary that stores the hyper-parameters for SMOTE type 2
+    :param smote_inst_1: SMOTE type 1
+    :param smote_inst_2: SMOTE type 2
     :return results stored in the DataFrame.
     """
     res_df = pd.DataFrame()
@@ -85,16 +91,16 @@ def main(dataset: str, models: List[str], n_rep: int, smote_param_1: dict, smote
 
             res_bin = binary(model, X_train_scaled.copy(), X_test_scaled.copy(), y_train.copy(), y_test.copy())
             res_dnc = divide_n_conquer(model, X_train_scaled.copy(), X_test_scaled.copy(), y_train.copy(), y_test.copy())
-            res_dnc_smote = (divide_n_conquer(model, X_train_scaled.copy(), X_test_scaled.copy(), y_train.copy(), y_test.copy(),
-                                              smote_param=smote_param_1))
+            res_dnc_smote = (divide_n_conquer(model, X_train_scaled.copy(), X_test_scaled.copy(), y_train.copy(),
+                                              y_test.copy(), smote=smote_inst_1))
             res_dnc_borderline = (divide_n_conquer(model, X_train_scaled.copy(), X_test_scaled.copy(), y_train.copy(),
-                                                   y_test.copy(), smote_param=smote_param_2))
+                                                   y_test.copy(), smote=smote_inst_2))
             res_dnc_lda = divide_n_conquer_lda(model, X_train_scaled.copy(), X_test_scaled.copy(), y_train.copy(),
                                                y_test.copy())
             res_dnc_lda_smote = divide_n_conquer_lda(model, X_train_scaled.copy(), X_test_scaled.copy(),
-                                                     y_train.copy(), y_test.copy(), smote_param=smote_param_1)
+                                                     y_train.copy(), y_test.copy(), smote=smote_inst_1)
             res_dnc_lda_borderline = divide_n_conquer_lda(model, X_train_scaled.copy(), X_test_scaled.copy(),
-                                                     y_train.copy(), y_test.copy(), smote_param=smote_param_2)
+                                                          y_train.copy(), y_test.copy(), smote=smote_inst_2)
 
             # res_twoLH = two_layer_hie(model, X_train_scaled.copy(), X_test_scaled.copy(), y_train.copy(), y_test.copy(), verbose=True)
             # res_ood3H = ood_3hie(model, X_train_scaled.copy(), X_test_scaled.copy(), y_train.copy(), y_test.copy(), verbose=True)
@@ -110,19 +116,15 @@ def main(dataset: str, models: List[str], n_rep: int, smote_param_1: dict, smote
 
 
 if __name__ == "__main__":
-    N_REP = 10
+    N_REP = 2
 
     ##### MPMC #####
     DATASET = "MPMC"
-    MODELS = [LogisticRegression(max_iter=10000), #SVC(kernel='linear', C=2),
-              SVC(kernel='rbf', C=1), DecisionTreeClassifier(), RandomForestClassifier(),
-              xgb.XGBClassifier()]
-    SMOTE_PARAM_1 = {"type": "SMOTE",
-                   "sampling_strategy": {1: 100, 2:100, 3: 100, 4: 100, 5: 100},
-                   "k_neighbors": 1}
-    SMOTE_PARAM_2 = {"type": "Borderline",
-                   "sampling_strategy": {1: 100, 2: 100, 3: 100, 4: 100, 5: 100},
-                   "k_neighbors": 1}
+    MODELS = [LogisticRegression(max_iter=10000), GaussianNB(), LDA(), SVC(kernel='linear', C=0.1),
+              SVC(kernel='rbf', C=0.5), DecisionTreeClassifier(), RandomForestClassifier(),
+              GradientBoostingClassifier(random_state=42), xgb.XGBClassifier()]
+    SMOTE_INST_1 = SMOTE()
+    SMOTE_INST_2 = BorderlineSMOTE()
     ##### MPMC #####
 
     ##### USPS #####
@@ -134,7 +136,7 @@ if __name__ == "__main__":
     #                "k_neighbors": np.linspace(1, 5, num=2).astype(int)}
     ##### USPS #####
 
-    res = main(DATASET, MODELS, N_REP, SMOTE_PARAM_1, SMOTE_PARAM_2)
-    filename = f"sum_results_0226_{DATASET}.csv"
+    res = main(DATASET, MODELS, N_REP, SMOTE_INST_1, SMOTE_INST_2)
+    filename = f"results_0227_{DATASET}.csv"
     res.to_csv(filename)
 

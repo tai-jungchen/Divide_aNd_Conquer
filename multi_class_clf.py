@@ -47,8 +47,9 @@ def multi_clf(model: object, strat: str, X_train: pd.DataFrame, X_test: pd.DataF
         elif strat == 'Direct':
             multi_model = clone(model).set_params(multi_class='multinomial')
     # RF / XGB / DT / SVM
-    elif (isinstance(model, RandomForestClassifier) or isinstance(model, xgb.XGBClassifier)
-          or isinstance(model, DecisionTreeClassifier) or isinstance(model, SVC)):
+    # elif (isinstance(model, RandomForestClassifier) or isinstance(model, xgb.XGBClassifier)
+    #       or isinstance(model, DecisionTreeClassifier) or isinstance(model, SVC)):
+    else:
         if strat == 'OvO':
             multi_model = OneVsOneClassifier(model)
         elif strat == 'OvR':
@@ -56,8 +57,6 @@ def multi_clf(model: object, strat: str, X_train: pd.DataFrame, X_test: pd.DataF
             multi_model = OneVsRestClassifier(model)
         elif strat == 'Direct':
             multi_model = clone(model)
-    else:
-        raise Exception(f"{model} not available in this package.")
 
     # training
     multi_model.fit(X_train, y_train)

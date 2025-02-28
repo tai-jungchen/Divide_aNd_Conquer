@@ -23,7 +23,7 @@ from sklearn.tree import DecisionTreeClassifier
 
 
 def divide_n_conquer(model: object, X_train: pd.DataFrame, X_test: pd.DataFrame, y_train: pd.DataFrame,
-                     y_test: pd.DataFrame, smote_param: dict = None, verbose: bool = False) -> pd.DataFrame:
+                     y_test: pd.DataFrame, smote: object = None, verbose: bool = False) -> pd.DataFrame:
     """
     Carry out the DNC method. DNC uses partial OvO and customized decision rules in voting to cope with imbalance
     data classification with minority subclasses.
@@ -33,7 +33,7 @@ def divide_n_conquer(model: object, X_train: pd.DataFrame, X_test: pd.DataFrame,
     :param X_test: testing data.
     :param y_train: training label. Note that the labels are multi-classes.
     :param y_test: testing label. Note that the labels are multi-classes.
-    :param smote_param: SMOTE settings including SMOTE type, sampling strategy, and number of neighbors.
+    :param smote: SMOTE settings including SMOTE type, sampling strategy, and number of neighbors.
     :param verbose: whether to print out the confusion matrix or not.
 
     :return: the dataframe with the classification metrics.
@@ -42,15 +42,7 @@ def divide_n_conquer(model: object, X_train: pd.DataFrame, X_test: pd.DataFrame,
     metrics = {key: [] for key in record_metrics}
 
     ##### smote #####
-    if smote_param:
-        if smote_param['type'] == "SMOTE":
-            smote = SMOTE(sampling_strategy=smote_param['sampling_strategy'], k_neighbors=smote_param['k_neighbors'],
-                          random_state=521)
-        elif smote_param['type'] == "Borderline":
-            smote = BorderlineSMOTE(sampling_strategy=smote_param['sampling_strategy'], k_neighbors=smote_param[
-                'k_neighbors'], kind='borderline-1', random_state=521)
-        else:
-            raise Exception("SMOTE type not exist!")
+    if smote:
         X_final, y_final = smote.fit_resample(X_train, y_train)
     ##### smote #####
     else:
@@ -89,8 +81,9 @@ def divide_n_conquer(model: object, X_train: pd.DataFrame, X_test: pd.DataFrame,
     metrics['f1'].append(round(f1_score(y_test, y_pred), 4))
 
     metrics['model'].append(model)
-    if smote_param:
-        metrics['method'].append(f"dnc_smote")
+    if smote:
+        smote_name = str(smote).split("(")[0]
+        metrics['method'].append(f"dnc_{smote_name}")
     else:
         metrics['method'].append(f"dnc")
 
