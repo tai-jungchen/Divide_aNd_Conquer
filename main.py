@@ -13,13 +13,13 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.naive_bayes import GaussianNB
 from sklearn.tree import DecisionTreeClassifier
 import xgboost as xgb
 from sklearn.naive_bayes import GaussianNB
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 
-from imblearn.over_sampling import SMOTE, BorderlineSMOTE
+from imblearn.over_sampling import SMOTE, BorderlineSMOTE, ADASYN
+from imblearn.combine import SMOTETomek
 
 from binary_clf import binary
 from divide_n_conquer import divide_n_conquer
@@ -29,7 +29,7 @@ from ood_hie import ood_2hie, ood_3hie
 from divide_n_conquer_lda import divide_n_conquer_lda
 
 
-def main(dataset: str, models: List[str], n_rep: int, smote_inst_1: object, smote_inst_2: object) -> pd.DataFrame:
+def main(dataset: str, models: List[str], n_rep: int, smote_inst_1: object) -> pd.DataFrame:
     """
     Run through all the methods for comparison.
 
@@ -37,7 +37,6 @@ def main(dataset: str, models: List[str], n_rep: int, smote_inst_1: object, smot
     :param models: types of models used for classification.
     :param n_rep: number of replications.
     :param smote_inst_1: SMOTE type 1
-    :param smote_inst_2: SMOTE type 2
     :return results stored in the DataFrame.
     """
     res_df = pd.DataFrame()
@@ -55,21 +54,16 @@ def main(dataset: str, models: List[str], n_rep: int, smote_inst_1: object, smot
             X_train, X_test, y_train, y_test = train_test_split(df.iloc[:, :-2], df['failure.type'], test_size=0.3,
                                                                 stratify=df['failure.type'], random_state=i)
 
-        elif dataset == 'nij':
-            df = pd.read_csv("datasets/preprocessed/nij_data.csv")
-            X_train, X_test, y_train, y_test = train_test_split(df.iloc[:, :-2], df['Recidivism'], test_size=0.3,
-                                                                stratify=df['Recidivism_Year'], random_state=i)
-        elif dataset == 'mnist':
-            df = pd.read_csv("datasets/preprocessed/mnist_imb.csv")
-            X_train, X_test, y_train, y_test = train_test_split(df.iloc[:, :-2], df['label_bin'], test_size=0.3,
+        elif dataset == 'GLASS':
+            df = pd.read_csv("datasets/preprocessed/glass_data.csv")
+            X_train, X_test, y_train, y_test = train_test_split(df.iloc[:, :-1], df['Type'], test_size=0.3,
+                                                                stratify=df['Type'], random_state=i)
+        elif dataset == 'MNIST':
+            df = pd.read_csv("datasets/preprocessed/imb_mnist.csv")
+            X_train, X_test, y_train, y_test = train_test_split(df.iloc[:, 1:], df['label'], test_size=0.3,
                                                                 stratify=df['label'], random_state=i)
         elif dataset == 'USPS':
-            df = pd.read_csv("datasets/preprocessed/imb_digit_0.csv")
-
-            # change label
-            maj = 0
-            label_mapping = {maj: 0, 1: 1, 6: 2, 9: 3}
-            df.iloc[:, 0] = df.iloc[:, 0].map(label_mapping)
+            df = pd.read_csv("datasets/preprocessed/imb_digit.csv")
             X_train, X_test, y_train, y_test = train_test_split(df.iloc[:, 1:], df.iloc[:, 0], test_size=0.3,
                                                                 stratify=df.iloc[:, 0], random_state=i)
         else:
@@ -93,50 +87,63 @@ def main(dataset: str, models: List[str], n_rep: int, smote_inst_1: object, smot
             res_dnc = divide_n_conquer(model, X_train_scaled.copy(), X_test_scaled.copy(), y_train.copy(), y_test.copy())
             res_dnc_smote = (divide_n_conquer(model, X_train_scaled.copy(), X_test_scaled.copy(), y_train.copy(),
                                               y_test.copy(), smote=smote_inst_1))
-            res_dnc_borderline = (divide_n_conquer(model, X_train_scaled.copy(), X_test_scaled.copy(), y_train.copy(),
-                                                   y_test.copy(), smote=smote_inst_2))
             res_dnc_lda = divide_n_conquer_lda(model, X_train_scaled.copy(), X_test_scaled.copy(), y_train.copy(),
                                                y_test.copy())
             res_dnc_lda_smote = divide_n_conquer_lda(model, X_train_scaled.copy(), X_test_scaled.copy(),
                                                      y_train.copy(), y_test.copy(), smote=smote_inst_1)
-            res_dnc_lda_borderline = divide_n_conquer_lda(model, X_train_scaled.copy(), X_test_scaled.copy(),
-                                                          y_train.copy(), y_test.copy(), smote=smote_inst_2)
-
             # res_twoLH = two_layer_hie(model, X_train_scaled.copy(), X_test_scaled.copy(), y_train.copy(), y_test.copy(), verbose=True)
             # res_ood3H = ood_3hie(model, X_train_scaled.copy(), X_test_scaled.copy(), y_train.copy(), y_test.copy(), verbose=True)
             # res_ood2H = ood_2hie(model, X_train_scaled.copy(), X_test_scaled.copy(), y_train.copy(), y_test.copy(), verbose=True)
             res_ovo = multi_clf(model, "OvO", X_train_scaled, X_test_scaled, y_train, y_test)
             res_ovr = multi_clf(model, "OvR", X_train_scaled, X_test_scaled, y_train, y_test)
             res_dir = multi_clf(model, "Direct", X_train_scaled, X_test_scaled, y_train, y_test)
-            res_df = pd.concat([res_df, res_bin, res_dnc, res_dnc_smote, res_dnc_borderline, res_dnc_lda,
-                                res_dnc_lda_smote, res_dnc_lda_borderline, res_ovo, res_ovr, res_dir], axis=0)
+            res_df = pd.concat([res_df, res_bin, res_dnc, res_dnc_smote, res_dnc_lda, res_dnc_lda_smote,
+                                res_ovo, res_ovr, res_dir], axis=0)
 
     # average the performance
     return res_df.groupby(by=["method", "model"], sort=False).mean()
 
 
 if __name__ == "__main__":
-    N_REP = 2
+    N_REP = 30
 
     ##### MPMC #####
-    DATASET = "MPMC"
-    MODELS = [LogisticRegression(max_iter=10000), GaussianNB(), LDA(), SVC(kernel='linear', C=0.1),
-              SVC(kernel='rbf', C=0.5), DecisionTreeClassifier(), RandomForestClassifier(),
-              GradientBoostingClassifier(random_state=42), xgb.XGBClassifier()]
-    SMOTE_INST_1 = SMOTE()
-    SMOTE_INST_2 = BorderlineSMOTE()
+    # DATASET = "MPMC"
+    # MODELS = [LogisticRegression(max_iter=10000), GaussianNB(), LDA(), SVC(kernel='linear', C=0.1),
+    #           SVC(kernel='rbf', C=0.5), DecisionTreeClassifier(), RandomForestClassifier(),
+    #           GradientBoostingClassifier(random_state=42), xgb.XGBClassifier()]
+    # SMOTE_INST_1 = BorderlineSMOTE(kind='borderline-1', sampling_strategy={1: 100, 2: 100, 3: 100, 4: 100, 5: 100},
+    #                                k_neighbors=1)
+    # SMOTE_INST_2 = ADASYN()
+    # SMOTE_INST_3 = SMOTE()
+    # SMOTE_INST_4 = SMOTETomek()
     ##### MPMC #####
 
     ##### USPS #####
     # DATASET = "USPS"
-    # MODELS = [LogisticRegression(max_iter=10000), SVC(kernel='linear', C=1.0),
-    #           SVC(kernel='rbf', C=1.0), DecisionTreeClassifier(max_depth=11), RandomForestClassifier(),
-    #           xgb.XGBClassifier()]
-    # SMOTE_PARAM = {"sampling_strategy": np.linspace(400, 400, num=1).astype(int),
-    #                "k_neighbors": np.linspace(1, 5, num=2).astype(int)}
+    # MODELS = [LogisticRegression(max_iter=10000), GaussianNB(), LDA(), SVC(kernel='linear', C=0.1),
+    #           SVC(kernel='rbf', C=0.5), DecisionTreeClassifier(), RandomForestClassifier(),
+    #           GradientBoostingClassifier(random_state=42), xgb.XGBClassifier()]
+    # SMOTE_INST_1 = BorderlineSMOTE(kind='borderline-1')
     ##### USPS #####
 
-    res = main(DATASET, MODELS, N_REP, SMOTE_INST_1, SMOTE_INST_2)
-    filename = f"results_0227_{DATASET}.csv"
+    ##### MNIST #####
+    DATASET = "MNIST"
+    MODELS = [LogisticRegression(max_iter=300), GaussianNB(), LDA(), #SVC(kernel='linear', C=0.1),
+              SVC(kernel='rbf', C=0.5), DecisionTreeClassifier(), RandomForestClassifier(),
+              GradientBoostingClassifier(random_state=42), xgb.XGBClassifier()]
+    SMOTE_INST_1 = BorderlineSMOTE(kind='borderline-1')
+    ##### MNIST #####
+
+    ##### GLASS #####
+    DATASET = "GLASS"
+    MODELS = [LogisticRegression(max_iter=300), GaussianNB(), LDA(),  SVC(kernel='linear', C=1),
+              SVC(kernel='rbf', C=1), DecisionTreeClassifier(), RandomForestClassifier(),
+              GradientBoostingClassifier(), xgb.XGBClassifier()]
+    SMOTE_INST_1 = BorderlineSMOTE(kind='borderline-1')
+    ##### GLASS #####
+
+    res = main(DATASET, MODELS, N_REP, SMOTE_INST_1)
+    filename = f"results_0301_{DATASET}.csv"
     res.to_csv(filename)
 

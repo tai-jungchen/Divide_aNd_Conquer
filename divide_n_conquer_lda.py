@@ -55,7 +55,7 @@ def divide_n_conquer_lda(model: object, X_train: pd.DataFrame, X_test: pd.DataFr
     X_test_lda = lda.transform(X_test)
 
     # Print explained variance ratio
-    print(" Explained variance ratio:", lda.explained_variance_ratio_)
+    # print(" Explained variance ratio:", lda.explained_variance_ratio_)
 
     y_preds = []
     for sub in range(1, int(y_smote.nunique())):
@@ -76,7 +76,7 @@ def divide_n_conquer_lda(model: object, X_train: pd.DataFrame, X_test: pd.DataFr
     y_test[y_test != 0] = 1  # turn all sub minority into 1
 
     if verbose:
-        print(f'DNC LDA with SMOTE {model}') if smote_param else print(f'DNC LDA {model}')
+        print(f'DNC LDA with SMOTE {model}') if smote else print(f'DNC LDA {model}')
         print(confusion_matrix(y_test, y_pred, labels=[0, 1]))
         print(classification_report(y_test, y_pred))
 
