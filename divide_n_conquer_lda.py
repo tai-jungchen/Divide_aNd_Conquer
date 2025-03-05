@@ -22,10 +22,12 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
+from dml import KDA
 
 
 def divide_n_conquer_lda(model: object, X_train: pd.DataFrame, X_test: pd.DataFrame, y_train: pd.DataFrame,
-                     y_test: pd.DataFrame, smote: object = None, verbose: bool = False) -> pd.DataFrame:
+                     y_test: pd.DataFrame, smote: object = None, verbose: bool = False, discriminate_analysis="LDA") \
+        -> pd.DataFrame:
     """
     Carry out the DNC method. The classification results.
 
@@ -50,24 +52,31 @@ def divide_n_conquer_lda(model: object, X_train: pd.DataFrame, X_test: pd.DataFr
         X_smote, y_smote = X_train.copy(), y_train.copy()
 
     # Fit LDA to training data and transform both train and test sets
-    lda = LDA(n_components=y_smote.nunique() - 1)
-    X_final = lda.fit_transform(X_smote, y_smote)
-    X_test_lda = lda.transform(X_test)
+    if discriminate_analysis == "LDA":
+        da = LDA(n_components=y_smote.nunique() - 1)
+    elif discriminate_analysis == "RDA":
+        da = LDA(n_components=y_smote.nunique() - 1, solver='eigen', shrinkage='auto')
+    elif discriminate_analysis == "KDA":
+        da = KDA(n_components=y_smote.nunique() - 1)
+    else:
+        raise Exception("Invalid Discriminative Analysis type.")
+    X_train_da = da.fit_transform(X_smote, y_smote)
+    X_test_da = da.transform(X_test)
 
     # Print explained variance ratio
-    # print(" Explained variance ratio:", lda.explained_variance_ratio_)
+    print("Explained variance ratio:", da.explained_variance_ratio_)
 
     y_preds = []
     for sub in range(1, int(y_smote.nunique())):
         local_model = clone(model)
 
         # select only majority and minority sub
-        X_train_local = X_final[(y_smote == sub) | (y_smote == 0)]
+        X_train_local = X_train_da[(y_smote == sub) | (y_smote == 0)]
         y_train_local = y_smote[(y_smote == sub) | (y_smote == 0)]
         y_train_local[y_train_local != 0] = 1  # turn non-zero sub minority into 1
 
         local_model.fit(X_train_local, y_train_local)
-        y_pred_sub = local_model.predict(X_test_lda)
+        y_pred_sub = local_model.predict(X_test_da)
         y_preds.append(y_pred_sub)
 
     # voting
@@ -92,8 +101,8 @@ def divide_n_conquer_lda(model: object, X_train: pd.DataFrame, X_test: pd.DataFr
 
     if smote:
         smote_name = str(smote).split("(")[0]
-        metrics['method'].append(f"dnc_lda_{smote_name}")
+        metrics['method'].append(f"dnc_{discriminate_analysis}_{smote_name}")
     else:
-        metrics['method'].append(f"dnc_lda")
+        metrics['method'].append(f"dnc_{discriminate_analysis}")
     return pd.DataFrame(metrics)
 
