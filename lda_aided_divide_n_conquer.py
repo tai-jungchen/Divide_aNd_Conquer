@@ -30,19 +30,21 @@ class LDAAidedDNC:
         :param y_test: testing labels (multi-class)
         :param multi_frame: either OvO or DNC can be assigned
 
-        :return optimal result based on the metric given in a pd.DataFrame.
+        :return optimal result based on the metric given.
         """
         res_df = pd.DataFrame()
 
         # run models
         for smote in self.smotes:
-            res = self.algo(X_train.copy(), X_test.copy(), y_train.copy(), y_test.copy(), multi_frame, smote=smote)
+            res = self._algo(X_train.copy(), X_test.copy(), y_train.copy(), y_test.copy(), multi_frame, smote=smote)
             res_df = pd.concat([res_df, res], axis=0)
 
         # return the optimal result in terms of the metric
-        return res_df[res_df[self.metric] == res_df[self.metric].max()]
+        opt = res_df[res_df[self.metric] == res_df[self.metric].max()]
+        print(f"Opt smote: {opt['smote']}")
+        return opt.drop(columns=["smote"])
 
-    def algo(self, X_train: pd.DataFrame, X_test: pd.DataFrame, y_train: pd.DataFrame, y_test: pd.DataFrame,
+    def _algo(self, X_train: pd.DataFrame, X_test: pd.DataFrame, y_train: pd.DataFrame, y_test: pd.DataFrame,
              multi_frame: str, smote: object = None, verbose: bool = False, discriminate_analysis="LDA") -> pd.DataFrame:
         """
         Carry out the lda-aided DNC method.
@@ -56,9 +58,10 @@ class LDAAidedDNC:
         :param verbose: whether to print out the confusion matrix or not.
         :param discriminate_analysis: type of LDA used.
 
-        :return: the dataframe with the classification metrics.
+        :return: dataframe with the classification metrics.
         """
-        record_metrics = ['model', 'method', 'f1', 'precision', 'recall', 'kappa', 'bacc', 'acc', 'specificity']
+        record_metrics = ['model', 'method', 'smote', 'f1', 'precision', 'recall', 'kappa', 'bacc', 'acc',
+                          'specificity']
         metrics = {key: [] for key in record_metrics}
 
         if smote:
@@ -126,6 +129,8 @@ class LDAAidedDNC:
         if smote:
             smote_name = str(smote).split("(")[0]
             metrics['method'].append(f"{multi_frame}_{discriminate_analysis}_{smote_name}")
+            metrics['smote'].append(smote)
         else:
             metrics['method'].append(f"{multi_frame}_{discriminate_analysis}")
+            metrics['smote'].append(None)
         return pd.DataFrame(metrics)
