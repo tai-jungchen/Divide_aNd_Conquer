@@ -112,17 +112,17 @@ def generate_borderline_smote_list(dataset: str) -> list:
     """
     smote_list = []
     if dataset == "MPMC":
-        for os_num in range(100, 600, 100):
+        for os_num in range(100, 350, 50):
             for k in range(1, 6, 2):
                 for m in range(1, 11, 2):
                     smote_list.append(BorderlineSMOTE(sampling_strategy={1: os_num, 2: os_num, 3: os_num, 4: os_num},
-                                                      k_neighbors=k, m_neighbors=m, random_state=42))
+                                                      k_neighbors=k, m_neighbors=m, random_state=521))
     elif dataset == "FAULTS":
-        for os_num in range(120, 300, 10):
+        for os_num in range(120, 300, 30):
             for k in range(1, 6, 2):
                 for m in range(1, 11, 2):
                     smote_list.append(BorderlineSMOTE(sampling_strategy={1: os_num, 2: os_num, 3: os_num},
-                                                      k_neighbors=k, m_neighbors=m, random_state=42))
+                                                      k_neighbors=k, m_neighbors=m, random_state=521))
     else:
         raise Exception("Invalid smote setting. Check the input dataset.")
     return smote_list
@@ -136,10 +136,10 @@ if __name__ == "__main__":
               LDA(),
               SVC(kernel='linear', C=0.01),
               SVC(kernel='rbf'),
-              DecisionTreeClassifier(),
-              RandomForestClassifier(),
-              GradientBoostingClassifier(),
-              xgb.XGBClassifier()]
+              DecisionTreeClassifier(random_state=521),
+              RandomForestClassifier(random_state=521),
+              GradientBoostingClassifier(random_state=521),
+              xgb.XGBClassifier(random_state=521)]
     ##### MPMC #####
 
     ##### FAULTS #####
@@ -149,10 +149,10 @@ if __name__ == "__main__":
     #           LDA(),
     #           SVC(kernel='linear', C=1),
     #           SVC(kernel='rbf', C=1),
-    #           DecisionTreeClassifier(),
-    #           RandomForestClassifier(),
-    #           GradientBoostingClassifier(),
-    #           xgb.XGBClassifier()]
+    #           DecisionTreeClassifier(random_state=521),
+    #           RandomForestClassifier(random_state=521),
+    #           GradientBoostingClassifier(random_state=521),
+    #           xgb.XGBClassifier(random_state=521)]
     ##### FAULTS #####
 
     ##### USPS #####
@@ -179,11 +179,11 @@ if __name__ == "__main__":
     # SMOTE_INST_1 = BorderlineSMOTE(kind='borderline-1')
     ##### GLASS #####
 
-    N_REP = 3
+    N_REP = 1
     METRIC = "bacc"
     SMOTES = generate_borderline_smote_list(DATASET)
 
     res = main(DATASET, MODELS, SMOTES, N_REP, METRIC)
-    filename = f"results_0306_{DATASET}.csv"
+    filename = f"results_0307_{DATASET}.csv"
     res.to_csv(filename)
 

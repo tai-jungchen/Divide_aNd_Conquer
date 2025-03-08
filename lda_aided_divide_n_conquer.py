@@ -41,7 +41,7 @@ class LDAAidedDNC:
 
         # return the optimal result in terms of the metric
         opt = res_df[res_df[self.metric] == res_df[self.metric].max()]
-        print(f"Opt smote: {opt['smote']}")
+        # print(f"Opt smote: {opt['smote']}")
         return opt.drop(columns=["smote"])
 
     def _algo(self, X_train: pd.DataFrame, X_test: pd.DataFrame, y_train: pd.DataFrame, y_test: pd.DataFrame,
